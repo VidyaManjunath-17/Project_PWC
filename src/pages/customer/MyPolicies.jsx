@@ -49,19 +49,47 @@ const MyPolicies = () => {
 
     // Search filter
     if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(policy =>
-        policy.policyNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        policy.policyType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        policy.policyCode?.toLowerCase().includes(searchQuery.toLowerCase())
+        policy.policyNumber?.toLowerCase().includes(query) ||
+        policy.policyType?.toLowerCase().includes(query) ||
+        policy.policyCode?.toLowerCase().includes(query) ||
+        policy.policyName?.toLowerCase().includes(query) ||
+        policy.description?.toLowerCase().includes(query)
       );
     }
 
     // Advanced filters
     if (filters.policyType) {
-      filtered = filtered.filter(policy => policy.policyType === filters.policyType);
+      filtered = filtered.filter(policy => 
+        policy.policyType?.toLowerCase() === filters.policyType.toLowerCase()
+      );
     }
     if (filters.status) {
-      filtered = filtered.filter(policy => policy.status === filters.status);
+      filtered = filtered.filter(policy => {
+        const policyStatus = policy.status?.toLowerCase() || '';
+        const filterStatus = filters.status.toLowerCase();
+        // Handle both enum values and display values
+        const statusMap = {
+          'active': ['active', 'active'],
+          'inactive': ['inactive', 'inactive'],
+          'expired': ['expired', 'expired']
+        };
+        return policyStatus === filterStatus || 
+               (statusMap[filterStatus] && statusMap[filterStatus].includes(policyStatus));
+      });
+    }
+    if (filters.startDate) {
+      filtered = filtered.filter(policy => {
+        if (!policy.startDate) return false;
+        return new Date(policy.startDate) >= new Date(filters.startDate);
+      });
+    }
+    if (filters.endDate) {
+      filtered = filtered.filter(policy => {
+        if (!policy.endDate) return false;
+        return new Date(policy.endDate) <= new Date(filters.endDate);
+      });
     }
 
     setFilteredPolicies(filtered);
@@ -122,6 +150,16 @@ const MyPolicies = () => {
         { value: 'Expired', label: 'Expired' }
       ],
       placeholder: 'Select status'
+    },
+    {
+      key: 'startDate',
+      label: 'Start Date From',
+      type: 'date'
+    },
+    {
+      key: 'endDate',
+      label: 'End Date To',
+      type: 'date'
     }
   ];
 
@@ -150,7 +188,7 @@ const MyPolicies = () => {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search policies by number, type, or code..."
+              placeholder="Search policies by number, type, code, name, or description..."
             />
             <AdvancedFilter
               filters={filterOptions}

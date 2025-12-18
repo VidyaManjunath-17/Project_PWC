@@ -80,22 +80,43 @@ const MyClaims = () => {
 
     // Search filter
     if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(claim =>
-        claim.claimNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        claim.policyNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        claim.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        claim.claimNumber?.toLowerCase().includes(query) ||
+        claim.policyNumber?.toLowerCase().includes(query) ||
+        claim.description?.toLowerCase().includes(query) ||
+        claim.remarks?.toLowerCase().includes(query)
       );
     }
 
     // Advanced filters
     if (filters.status) {
-      filtered = filtered.filter(claim => claim.status === filters.status);
+      filtered = filtered.filter(claim => {
+        const claimStatus = claim.status?.toLowerCase() || '';
+        return claimStatus === filters.status.toLowerCase();
+      });
     }
     if (filters.startDate) {
-      filtered = filtered.filter(claim => new Date(claim.claimDate) >= new Date(filters.startDate));
+      filtered = filtered.filter(claim => {
+        if (!claim.claimDate) return false;
+        return new Date(claim.claimDate) >= new Date(filters.startDate);
+      });
     }
     if (filters.endDate) {
-      filtered = filtered.filter(claim => new Date(claim.claimDate) <= new Date(filters.endDate));
+      filtered = filtered.filter(claim => {
+        if (!claim.claimDate) return false;
+        return new Date(claim.claimDate) <= new Date(filters.endDate);
+      });
+    }
+    if (filters.minAmount) {
+      filtered = filtered.filter(claim => 
+        claim.claimAmount && parseFloat(claim.claimAmount) >= parseFloat(filters.minAmount)
+      );
+    }
+    if (filters.maxAmount) {
+      filtered = filtered.filter(claim => 
+        claim.claimAmount && parseFloat(claim.claimAmount) <= parseFloat(filters.maxAmount)
+      );
     }
 
     setFilteredClaims(filtered);
@@ -148,6 +169,18 @@ const MyClaims = () => {
       key: 'endDate',
       label: 'To Date',
       type: 'date'
+    },
+    {
+      key: 'minAmount',
+      label: 'Min Amount',
+      type: 'number',
+      placeholder: 'Minimum amount'
+    },
+    {
+      key: 'maxAmount',
+      label: 'Max Amount',
+      type: 'number',
+      placeholder: 'Maximum amount'
     }
   ];
 

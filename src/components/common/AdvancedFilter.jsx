@@ -65,6 +65,16 @@ const AdvancedFilter = ({
                     onChange={(e) => handleFilterChange(filter.key, e.target.value)}
                     className="h-6 w-full px-2 py-1 border border-gray-300 rounded-md text-[10px]"
                   />
+                ) : filter.type === 'number' ? (
+                  <input
+                    type="number"
+                    value={filterValues[filter.key] || ''}
+                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                    placeholder={filter.placeholder || 'Enter number'}
+                    className="h-6 w-full px-2 py-1 border border-gray-300 rounded-md text-[10px]"
+                    min="0"
+                    step="0.01"
+                  />
                 ) : (
                   <input
                     type="text"

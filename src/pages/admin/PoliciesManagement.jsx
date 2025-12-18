@@ -75,18 +75,27 @@ const PoliciesManagement = () => {
 
     // Search filter
     if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(policy =>
-        policy.policyCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        policy.policyType?.toLowerCase().includes(searchQuery.toLowerCase())
+        policy.policyCode?.toLowerCase().includes(query) ||
+        policy.policyType?.toLowerCase().includes(query) ||
+        policy.policyName?.toLowerCase().includes(query) ||
+        policy.description?.toLowerCase().includes(query) ||
+        policy.policyNumber?.toLowerCase().includes(query)
       );
     }
 
     // Advanced filters
     if (filters.status) {
-      filtered = filtered.filter(policy => policy.status === filters.status);
+      filtered = filtered.filter(policy => {
+        const policyStatus = policy.status?.toLowerCase() || '';
+        return policyStatus === filters.status.toLowerCase();
+      });
     }
     if (filters.policyType) {
-      filtered = filtered.filter(policy => policy.policyType === filters.policyType);
+      filtered = filtered.filter(policy => 
+        policy.policyType?.toLowerCase() === filters.policyType.toLowerCase()
+      );
     }
 
     setFilteredPolicies(filtered);
@@ -240,7 +249,7 @@ const PoliciesManagement = () => {
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search policies by number, type, or name..."
+          placeholder="Search policies by code, type, name, number, or description..."
         />
         <AdvancedFilter
           filters={filterOptions}

@@ -70,13 +70,17 @@ const CustomersManagement = () => {
         customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone?.includes(searchQuery) ||
         customer.customerCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.username?.toLowerCase().includes(searchQuery.toLowerCase())
+        customer.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.address?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     // Advanced filters
     if (filters.status) {
-      // Add status filter if needed
+      filtered = filtered.filter(customer => {
+        const customerStatus = customer.status?.toLowerCase() || 'active';
+        return customerStatus === filters.status.toLowerCase();
+      });
     }
 
     setFilteredCustomers(filtered);
