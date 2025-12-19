@@ -28,9 +28,17 @@ export const login = async (username, password) => {
       user: userResponse
     };
   } catch (error) {
-    const errorMessage = error.response?.data?.message || 
-                        error.message || 
-                        'Login failed. Please check your credentials.';
+    // Extract error message from API response
+    // For login errors, show the actual error message from backend
+    let errorMessage = 'Login failed. Please check your credentials.';
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message && !error.message.includes('refresh')) {
+      // Only use error.message if it's not about refresh token
+      errorMessage = error.message;
+    }
+    
     throw new Error(errorMessage);
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { getAllPolicies, createPolicy, updatePolicy, assignPolicyToCustomer } from '../../services/policyService';
 import { getAllCustomers } from '../../services/customerService';
@@ -12,11 +12,11 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Alert from '../../components/common/Alert';
 import SearchInput from '../../components/common/SearchInput';
 import AdvancedFilter from '../../components/common/AdvancedFilter';
+import Pagination from '../../components/common/Pagination';
 import { toast } from 'react-toastify';
 
 const PoliciesManagement = () => {
   const [policies, setPolicies] = useState([]);
-  const [filteredPolicies, setFilteredPolicies] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -31,63 +31,60 @@ const PoliciesManagement = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
-  const hasFetchedRef = useRef(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pagination, setPagination] = useState({
+    totalElements: 0,
+    totalPages: 0,
+    pageSize: 10,
+    hasNext: false,
+    hasPrevious: false
+  });
 
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode
-    if (hasFetchedRef.current) {
-      return;
-    }
-    hasFetchedRef.current = true;
+    fetchPolicies();
+  }, [currentPage]);
 
-    fetchData();
-
-    // Cleanup function
-    return () => {
-      hasFetchedRef.current = false;
-    };
+  useEffect(() => {
+    fetchCustomers();
   }, []);
 
-  useEffect(() => {
-    filterPolicies();
-  }, [policies, searchQuery, filters]);
-
-  const fetchData = async () => {
+  const fetchPolicies = async () => {
     try {
       setLoading(true);
-      const [policiesData, customersData] = await Promise.all([
-        getAllPolicies().catch(() => []),
-        getAllCustomers().catch(() => [])
-      ]);
-      // Sort policies by newest first (by createdAt descending)
-      const sortedPolicies = [...policiesData].sort((a, b) => {
-        // Primary sort: by createdAt (newest first)
-        if (a.createdAt && b.createdAt) {
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        }
-        // If one has createdAt and other doesn't, prioritize the one with createdAt
-        if (a.createdAt && !b.createdAt) return -1;
-        if (!a.createdAt && b.createdAt) return 1;
-        // Fallback: sort by policyCode if createdAt not available
-        const getPolicyCodeNumber = (code) => {
-          if (!code) return 0;
-          const match = code.toString().match(/\d+$/);
-          return match ? parseInt(match[0], 10) : 0;
-        };
-        return getPolicyCodeNumber(b.policyCode) - getPolicyCodeNumber(a.policyCode);
+      const response = await getAllPolicies(currentPage);
+      // Response is now paginated: { content: [...], currentPage, pageSize, totalElements, totalPages, hasNext, hasPrevious }
+      setPolicies(response.content || []);
+      setPagination({
+        totalElements: response.totalElements || 0,
+        totalPages: response.totalPages || 0,
+        pageSize: response.pageSize || 10,
+        hasNext: response.hasNext || false,
+        hasPrevious: response.hasPrevious || false
       });
-      setPolicies(sortedPolicies);
-      setFilteredPolicies(sortedPolicies);
-      setCustomers(customersData);
+      setError('');
     } catch (err) {
-      setError('Failed to load data. Please try again.');
+      setError('Failed to load policies. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterPolicies = () => {
+  const fetchCustomers = async () => {
+    try {
+      const response = await getAllCustomers(0);
+      setCustomers(response.content || []);
+    } catch (err) {
+      console.error('Failed to load customers:', err);
+    }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  // Filter policies client-side for search (since backend pagination doesn't support search yet)
+  const filteredPolicies = (() => {
     let filtered = [...policies];
 
     // Search filter
@@ -115,8 +112,8 @@ const PoliciesManagement = () => {
       );
     }
 
-    setFilteredPolicies(filtered);
-  };
+    return filtered;
+  })();
 
   const handleCreate = () => {
     setEditingPolicy(null);
@@ -162,10 +159,12 @@ const PoliciesManagement = () => {
       toast.success('Policy assigned successfully');
       setShowAssignModal(false);
       setSelectedCustomerId('');
-      fetchData();
+      fetchPolicies();
     } catch (err) {
-      toast.error(err.message || 'Failed to assign policy');
-      console.error(err);
+      // Display the error message from backend
+      const errorMessage = err.message || 'Failed to assign policy';
+      toast.error(errorMessage);
+      console.error('Policy assignment error:', err);
     } finally {
       setAssigning(false);
     }
@@ -183,16 +182,16 @@ const PoliciesManagement = () => {
         toast.success('Policy updated successfully');
         setShowModal(false);
         setEditingPolicy(null);
-        fetchData();
+        setCurrentPage(0);
+        fetchPolicies();
       } else {
         // Create new policy
-        const newPolicy = await createPolicy(formData);
+        await createPolicy(formData);
         toast.success('Policy created successfully');
         setShowModal(false);
         setEditingPolicy(null);
-        
-        // Refresh to get the latest from server (which will be sorted correctly)
-        await fetchData();
+        setCurrentPage(0);
+        fetchPolicies();
       }
     } catch (err) {
       toast.error(err.message || 'Failed to save policy');
@@ -210,13 +209,6 @@ const PoliciesManagement = () => {
     setFilters({});
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
   const customerOptions = customers.map(customer => ({
     value: customer.id,
@@ -281,12 +273,24 @@ const PoliciesManagement = () => {
         />
       </div>
 
-      <PolicyList
-        policies={filteredPolicies}
-        onView={handleView}
-        onEdit={handleEdit}
-        onAssign={handleAssign}
-      />
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <PolicyList
+          policies={filteredPolicies}
+          onView={handleView}
+          onEdit={handleEdit}
+          onAssign={handleAssign}
+          loading={loading}
+        />
+        <Pagination
+          currentPage={currentPage}
+          totalPages={pagination.totalPages}
+          totalElements={pagination.totalElements}
+          pageSize={pagination.pageSize}
+          hasNext={pagination.hasNext}
+          hasPrevious={pagination.hasPrevious}
+          onPageChange={handlePageChange}
+        />
+      </div>
 
       <Modal
         isOpen={showModal}

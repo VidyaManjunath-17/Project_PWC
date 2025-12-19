@@ -4,7 +4,7 @@ import Table from '../common/Table';
 import Button from '../common/Button';
 import { formatDate, formatPhone } from '../../utils/formatters';
 
-const CustomerList = ({ customers = [], onView, onEdit }) => {
+const CustomerList = ({ customers = [], onView, onEdit, loading = false }) => {
   const columns = [
     { key: 'customerCode', label: 'Customer Code' },
     { key: 'name', label: 'Name' },
@@ -46,7 +46,7 @@ const CustomerList = ({ customers = [], onView, onEdit }) => {
     }
   ];
 
-  return <Table columns={columns} data={customers} onRowClick={onView ? (row) => onView(row.customerCode) : undefined} />;
+  return <Table columns={columns} data={customers} onRowClick={onView ? (row) => onView(row.customerCode) : undefined} loading={loading} />;
 };
 
 export default CustomerList;

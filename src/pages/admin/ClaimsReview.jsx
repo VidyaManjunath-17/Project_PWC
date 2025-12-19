@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getAllClaims, updateClaimStatus } from '../../services/claimService';
 import ClaimList from '../../components/claim/ClaimList';
 import ClaimDetailsModal from '../../components/claim/ClaimDetailsModal';
@@ -10,12 +10,12 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Alert from '../../components/common/Alert';
 import SearchInput from '../../components/common/SearchInput';
 import AdvancedFilter from '../../components/common/AdvancedFilter';
+import Pagination from '../../components/common/Pagination';
 import { CLAIM_STATUS } from '../../utils/constants';
 import { toast } from 'react-toastify';
 
 const ClaimsReview = () => {
   const [claims, setClaims] = useState([]);
-  const [filteredClaims, setFilteredClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -26,33 +26,38 @@ const ClaimsReview = () => {
   const [remarks, setRemarks] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
-  const hasFetchedRef = useRef(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pagination, setPagination] = useState({
+    totalElements: 0,
+    totalPages: 0,
+    pageSize: 10,
+    hasNext: false,
+    hasPrevious: false
+  });
 
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode
-    if (hasFetchedRef.current) {
-      return;
-    }
-    hasFetchedRef.current = true;
-
     fetchClaims();
-
-    // Cleanup function
-    return () => {
-      hasFetchedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    filterClaims();
-  }, [claims, searchQuery, filters]);
+  }, [currentPage, filters]);
 
   const fetchClaims = async () => {
     try {
       setLoading(true);
-      const data = await getAllClaims();
-      setClaims(data);
-      setFilteredClaims(data);
+      const apiFilters = {
+        status: filters.status || null,
+        from: filters.startDate || null,
+        to: filters.endDate || null
+      };
+      const response = await getAllClaims(apiFilters, currentPage);
+      // Response is now paginated: { content: [...], currentPage, pageSize, totalElements, totalPages, hasNext, hasPrevious }
+      setClaims(response.content || []);
+      setPagination({
+        totalElements: response.totalElements || 0,
+        totalPages: response.totalPages || 0,
+        pageSize: response.pageSize || 10,
+        hasNext: response.hasNext || false,
+        hasPrevious: response.hasPrevious || false
+      });
+      setError('');
     } catch (err) {
       setError('Failed to load claims. Please try again.');
       console.error(err);
@@ -61,59 +66,31 @@ const ClaimsReview = () => {
     }
   };
 
-  const filterClaims = () => {
-    let filtered = [...claims];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(claim =>
-        claim.claimNumber?.toLowerCase().includes(query) ||
-        claim.policyNumber?.toLowerCase().includes(query) ||
-        claim.description?.toLowerCase().includes(query) ||
-        claim.remarks?.toLowerCase().includes(query)
-      );
-    }
-
-    // Advanced filters
-    if (filters.status) {
-      filtered = filtered.filter(claim => {
-        const claimStatus = claim.status?.toLowerCase() || '';
-        return claimStatus === filters.status.toLowerCase();
-      });
-    }
-    if (filters.startDate) {
-      filtered = filtered.filter(claim => {
-        if (!claim.claimDate) return false;
-        return new Date(claim.claimDate) >= new Date(filters.startDate);
-      });
-    }
-    if (filters.endDate) {
-      filtered = filtered.filter(claim => {
-        if (!claim.claimDate) return false;
-        return new Date(claim.claimDate) <= new Date(filters.endDate);
-      });
-    }
-    if (filters.minAmount) {
-      filtered = filtered.filter(claim => 
-        claim.claimAmount && parseFloat(claim.claimAmount) >= parseFloat(filters.minAmount)
-      );
-    }
-    if (filters.maxAmount) {
-      filtered = filtered.filter(claim => 
-        claim.claimAmount && parseFloat(claim.claimAmount) <= parseFloat(filters.maxAmount)
-      );
-    }
-
-    setFilteredClaims(filtered);
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
+
+  // Filter claims client-side for search (since backend pagination doesn't support search yet)
+  const filteredClaims = searchQuery.trim() 
+    ? claims.filter(claim => {
+        const query = searchQuery.toLowerCase();
+        return (
+          claim.claimNumber?.toLowerCase().includes(query) ||
+          claim.policyNumber?.toLowerCase().includes(query) ||
+          claim.description?.toLowerCase().includes(query) ||
+          claim.remarks?.toLowerCase().includes(query)
+        );
+      })
+    : claims;
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
+    setCurrentPage(0); // Reset to first page when filters change
   };
 
   const handleFilterReset = () => {
     setFilters({});
+    setCurrentPage(0);
   };
 
   const handleView = (id) => {
@@ -151,13 +128,6 @@ const ClaimsReview = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
   const statusOptions = Object.values(CLAIM_STATUS).map(s => ({
     value: s,
@@ -224,12 +194,24 @@ const ClaimsReview = () => {
         />
       </div>
 
-      <ClaimList
-        claims={filteredClaims}
-        onView={handleView}
-        onUpdate={handleUpdate}
-        showPolicy={true}
-      />
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <ClaimList
+          claims={filteredClaims}
+          onView={handleView}
+          onUpdate={handleUpdate}
+          showPolicy={true}
+          loading={loading}
+        />
+        <Pagination
+          currentPage={currentPage}
+          totalPages={pagination.totalPages}
+          totalElements={pagination.totalElements}
+          pageSize={pagination.pageSize}
+          hasNext={pagination.hasNext}
+          hasPrevious={pagination.hasPrevious}
+          onPageChange={handlePageChange}
+        />
+      </div>
 
       {/* Claim Details Modal */}
       <ClaimDetailsModal

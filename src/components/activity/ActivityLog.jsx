@@ -2,7 +2,7 @@ import React from 'react';
 import Table from '../common/Table';
 import { formatDateTime } from '../../utils/formatters';
 
-const ActivityLog = ({ activities = [] }) => {
+const ActivityLog = ({ activities = [], loading = false }) => {
   const columns = [
     { key: 'actionType', label: 'Action Type' },
     { key: 'username', label: 'User' },
@@ -10,7 +10,7 @@ const ActivityLog = ({ activities = [] }) => {
     { key: 'createdAt', label: 'Timestamp', render: (value) => formatDateTime(value) }
   ];
 
-  return <Table columns={columns} data={activities} />;
+  return <Table columns={columns} data={activities} loading={loading} />;
 };
 
 export default ActivityLog;

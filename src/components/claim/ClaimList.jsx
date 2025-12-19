@@ -4,7 +4,7 @@ import Table from '../common/Table';
 import StatusBadge from '../common/StatusBadge';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
-const ClaimList = ({ claims = [], onView, onUpdate, showPolicy = false }) => {
+const ClaimList = ({ claims = [], onView, onUpdate, showPolicy = false, loading = false }) => {
   const columns = [
     { key: 'claimNumber', label: 'Claim ID' },
     showPolicy && { key: 'policyNumber', label: 'Policy Number' },
@@ -54,7 +54,7 @@ const ClaimList = ({ claims = [], onView, onUpdate, showPolicy = false }) => {
     }
   ].filter(Boolean);
 
-  return <Table columns={columns} data={claims} onRowClick={onView} />;
+  return <Table columns={columns} data={claims} onRowClick={onView} loading={loading} />;
 };
 
 export default ClaimList;

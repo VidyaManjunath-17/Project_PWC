@@ -4,7 +4,7 @@ import Table from '../common/Table';
 import StatusBadge from '../common/StatusBadge';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
-const PolicyList = ({ policies = [], onView, onEdit, onAssign, showCustomer = false }) => {
+const PolicyList = ({ policies = [], onView, onEdit, onAssign, showCustomer = false, loading = false }) => {
   const columns = [
     { key: 'policyCode', label: 'Policy Code' },
     // Policy Number only shown for customers, not for admin
@@ -77,7 +77,7 @@ const PolicyList = ({ policies = [], onView, onEdit, onAssign, showCustomer = fa
     }
   ];
 
-  return <Table columns={columns} data={policies} onRowClick={onView} />;
+  return <Table columns={columns} data={policies} onRowClick={onView} loading={loading} />;
 };
 
 export default PolicyList;

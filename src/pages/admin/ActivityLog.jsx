@@ -1,45 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getActivityLogs } from '../../services/activityService';
 import ActivityLogComponent from '../../components/activity/ActivityLog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Alert from '../../components/common/Alert';
 import SearchInput from '../../components/common/SearchInput';
 import AdvancedFilter from '../../components/common/AdvancedFilter';
+import Pagination from '../../components/common/Pagination';
 
 const ActivityLog = () => {
   const [activities, setActivities] = useState([]);
-  const [filteredActivities, setFilteredActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
-  const hasFetchedRef = useRef(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pagination, setPagination] = useState({
+    totalElements: 0,
+    totalPages: 0,
+    pageSize: 10,
+    hasNext: false,
+    hasPrevious: false
+  });
 
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode
-    if (hasFetchedRef.current) {
-      return;
-    }
-    hasFetchedRef.current = true;
-
     fetchActivities();
-
-    // Cleanup function
-    return () => {
-      hasFetchedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    filterActivities();
-  }, [activities, searchQuery, filters]);
+  }, [currentPage]);
 
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const data = await getActivityLogs();
-      setActivities(data);
-      setFilteredActivities(data);
+      const response = await getActivityLogs(currentPage);
+      // Response is now paginated: { content: [...], currentPage, pageSize, totalElements, totalPages, hasNext, hasPrevious }
+      setActivities(response.content || []);
+      setPagination({
+        totalElements: response.totalElements || 0,
+        totalPages: response.totalPages || 0,
+        pageSize: response.pageSize || 10,
+        hasNext: response.hasNext || false,
+        hasPrevious: response.hasPrevious || false
+      });
+      setError('');
     } catch (err) {
       setError('Failed to load activity logs. Please try again.');
       console.error(err);
@@ -48,7 +48,12 @@ const ActivityLog = () => {
     }
   };
 
-  const filterActivities = () => {
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  // Filter activities client-side for search (since backend pagination doesn't support search yet)
+  const filteredActivities = (() => {
     let filtered = [...activities];
 
     // Search filter
@@ -71,26 +76,23 @@ const ActivityLog = () => {
       filtered = filtered.filter(activity => new Date(activity.createdAt) <= new Date(filters.endDate));
     }
 
-    setFilteredActivities(filtered);
-  };
+    return filtered;
+  })();
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
+    setCurrentPage(0); // Reset to first page when filters change
   };
 
   const handleFilterReset = () => {
     setFilters({});
+    setCurrentPage(0);
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
-  const actionTypes = [...new Set(activities.map(a => a.actionType))].map(type => ({
+  // Get unique action types from all activities (including filtered)
+  const allActionTypes = [...new Set(activities.map(a => a.actionType))];
+  const actionTypes = allActionTypes.map(type => ({
     value: type,
     label: type
   }));
@@ -143,7 +145,18 @@ const ActivityLog = () => {
         />
       </div>
 
-      <ActivityLogComponent activities={filteredActivities} />
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <ActivityLogComponent activities={filteredActivities} loading={loading} />
+        <Pagination
+          currentPage={currentPage}
+          totalPages={pagination.totalPages}
+          totalElements={pagination.totalElements}
+          pageSize={pagination.pageSize}
+          hasNext={pagination.hasNext}
+          hasPrevious={pagination.hasPrevious}
+          onPageChange={handlePageChange}
+        />
+      </div>
     </div>
   );
 };

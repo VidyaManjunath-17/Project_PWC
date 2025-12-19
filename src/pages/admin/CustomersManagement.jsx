@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { getAllCustomers, createCustomer, updateCustomer } from '../../services/customerService';
 import CustomerList from '../../components/customer/CustomerList';
@@ -9,11 +9,11 @@ import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Alert from '../../components/common/Alert';
 import SearchInput from '../../components/common/SearchInput';
+import Pagination from '../../components/common/Pagination';
 import { toast } from 'react-toastify';
 
 const CustomersManagement = () => {
   const [customers, setCustomers] = useState([]);
-  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -22,50 +22,32 @@ const CustomersManagement = () => {
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const hasFetchedRef = useRef(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pagination, setPagination] = useState({
+    totalElements: 0,
+    totalPages: 0,
+    pageSize: 10,
+    hasNext: false,
+    hasPrevious: false
+  });
 
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode
-    if (hasFetchedRef.current) {
-      return;
-    }
-    hasFetchedRef.current = true;
-
     fetchCustomers();
-
-    // Cleanup function
-    return () => {
-      hasFetchedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    filterCustomers();
-  }, [customers, searchQuery]);
+  }, [currentPage]);
 
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const data = await getAllCustomers();
-      // Sort by newest first (by createdAt descending)
-      const sortedData = [...data].sort((a, b) => {
-        // Primary sort: by createdAt (newest first)
-        if (a.createdAt && b.createdAt) {
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        }
-        // If one has createdAt and other doesn't, prioritize the one with createdAt
-        if (a.createdAt && !b.createdAt) return -1;
-        if (!a.createdAt && b.createdAt) return 1;
-        // Fallback: sort by customerCode if createdAt not available
-        const getCustomerCodeNumber = (code) => {
-          if (!code) return 0;
-          const match = code.toString().match(/\d+$/);
-          return match ? parseInt(match[0], 10) : 0;
-        };
-        return getCustomerCodeNumber(b.customerCode) - getCustomerCodeNumber(a.customerCode);
+      const response = await getAllCustomers(currentPage);
+      // Response is now paginated: { content: [...], currentPage, pageSize, totalElements, totalPages, hasNext, hasPrevious }
+      setCustomers(response.content || []);
+      setPagination({
+        totalElements: response.totalElements || 0,
+        totalPages: response.totalPages || 0,
+        pageSize: response.pageSize || 10,
+        hasNext: response.hasNext || false,
+        hasPrevious: response.hasPrevious || false
       });
-      setCustomers(sortedData);
-      setFilteredCustomers(sortedData);
       setError('');
     } catch (err) {
       setError('Failed to load customers. Please try again.');
@@ -75,22 +57,8 @@ const CustomersManagement = () => {
     }
   };
 
-  const filterCustomers = () => {
-    let filtered = [...customers];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(customer =>
-        customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.phone?.includes(searchQuery) ||
-        customer.customerCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.address?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredCustomers(filtered);
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
 
   const handleCreate = () => {
@@ -114,6 +82,18 @@ const CustomersManagement = () => {
     }
   };
 
+  // Filter customers client-side for search (since backend pagination doesn't support search yet)
+  const filteredCustomers = searchQuery.trim() 
+    ? customers.filter(customer =>
+        customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.phone?.includes(searchQuery) ||
+        customer.customerCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.address?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : customers;
+
 
   const handleSubmit = async (formData) => {
     // Prevent multiple submissions
@@ -132,6 +112,8 @@ const CustomersManagement = () => {
       }
       setShowModal(false);
       setEditingCustomer(null);
+      // Reset to first page after creating/updating
+      setCurrentPage(0);
       fetchCustomers();
     } catch (err) {
       toast.error(err.message || 'Failed to save customer');
@@ -140,14 +122,6 @@ const CustomersManagement = () => {
       setSubmitting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -176,11 +150,23 @@ const CustomersManagement = () => {
         <Alert type="error" message={error} onClose={() => setError('')} />
       )}
 
-      <CustomerList
-        customers={filteredCustomers}
-        onView={handleView}
-        onEdit={handleEdit}
-      />
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <CustomerList
+          customers={filteredCustomers}
+          onView={handleView}
+          onEdit={handleEdit}
+          loading={loading}
+        />
+        <Pagination
+          currentPage={currentPage}
+          totalPages={pagination.totalPages}
+          totalElements={pagination.totalElements}
+          pageSize={pagination.pageSize}
+          hasNext={pagination.hasNext}
+          hasPrevious={pagination.hasPrevious}
+          onPageChange={handlePageChange}
+        />
+      </div>
 
       <Modal
         isOpen={showModal}

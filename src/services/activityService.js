@@ -1,7 +1,7 @@
 import api from './api';
 
-export const getActivityLogs = async () => {
-  const response = await api.get('/admin/activity-logs');
+export const getActivityLogs = async (page = 0) => {
+  const response = await api.get(`/admin/activity-logs?page=${page}`);
   return response.data;
 };
 

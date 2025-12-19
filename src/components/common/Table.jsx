@@ -1,15 +1,8 @@
 import React from 'react';
 import { Card, CardContent } from './Card';
+import LoadingSpinner from './LoadingSpinner';
 
-const Table = ({ columns = [], data = [], className = '', onRowClick }) => {
-  if (data.length === 0) {
-    return (
-      <div className={`text-center py-8 ${className}`}>
-        <p className="text-xs text-gray-600">No data available</p>
-      </div>
-    );
-  }
-
+const Table = ({ columns = [], data = [], className = '', onRowClick, loading = false }) => {
   return (
     <Card className={`border border-gray-200 shadow-md ${className}`}>
       <CardContent className="p-0">
@@ -29,27 +22,42 @@ const Table = ({ columns = [], data = [], className = '', onRowClick }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {data.map((row, index) => (
-                <tr
-                  key={row.id || index}
-                  onClick={() => onRowClick?.(row.id || row)}
-                  className={`transition-colors hover:bg-purple-50/50 border-l-4 border-transparent hover:border-purple-300 ${
-                    onRowClick ? 'cursor-pointer' : ''
-                  }`}
-                >
-                  {columns.map((column) => (
-                    <td 
-                      key={column.key} 
-                      className="px-4 py-4 text-xs text-gray-900 whitespace-nowrap"
-                      style={column.style}
-                    >
-                      {column.render
-                        ? column.render(row[column.key], row)
-                        : row[column.key]}
-                    </td>
-                  ))}
+              {loading ? (
+                <tr>
+                  <td colSpan={columns.length} className="px-4 py-12 text-center">
+                    <LoadingSpinner size="md" />
+                    <p className="text-xs text-gray-500 mt-2">Loading data...</p>
+                  </td>
                 </tr>
-              ))}
+              ) : data.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="px-4 py-8 text-center">
+                    <p className="text-xs text-gray-600">No data available</p>
+                  </td>
+                </tr>
+              ) : (
+                data.map((row, index) => (
+                  <tr
+                    key={row.id || index}
+                    onClick={() => onRowClick?.(row.id || row)}
+                    className={`transition-colors hover:bg-purple-50/50 border-l-4 border-transparent hover:border-purple-300 ${
+                      onRowClick ? 'cursor-pointer' : ''
+                    }`}
+                  >
+                    {columns.map((column) => (
+                      <td 
+                        key={column.key} 
+                        className="px-4 py-4 text-xs text-gray-900 whitespace-nowrap"
+                        style={column.style}
+                      >
+                        {column.render
+                          ? column.render(row[column.key], row)
+                          : row[column.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

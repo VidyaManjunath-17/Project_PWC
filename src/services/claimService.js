@@ -10,8 +10,9 @@ export const getMyClaims = async () => {
   return response.data;
 };
 
-export const getAllClaims = async (filters = {}) => {
+export const getAllClaims = async (filters = {}, page = 0) => {
   const params = new URLSearchParams();
+  params.append('page', page);
   if (filters.status) params.append('status', filters.status);
   if (filters.from) params.append('from', filters.from);
   if (filters.to) params.append('to', filters.to);

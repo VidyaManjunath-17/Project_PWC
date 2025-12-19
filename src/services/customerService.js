@@ -1,8 +1,8 @@
 import api from './api';
 
-export const getAllCustomers = async () => {
+export const getAllCustomers = async (page = 0) => {
   try {
-    const response = await api.get('/admin/customers');
+    const response = await api.get(`/admin/customers?page=${page}`);
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Failed to fetch customers');

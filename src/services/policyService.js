@@ -1,7 +1,7 @@
 import api from './api';
 
-export const getAllPolicies = async () => {
-  const response = await api.get('/admin/policies');
+export const getAllPolicies = async (page = 0) => {
+  const response = await api.get(`/admin/policies?page=${page}`);
   return response.data;
 };
 
@@ -21,10 +21,16 @@ export const updatePolicy = async (id, policyData) => {
 };
 
 export const assignPolicyToCustomer = async (customerId, policyId) => {
-  const response = await api.post(`/admin/policies/customers/${customerId}/assign`, {
-    policyId
-  });
-  return response.data;
+  try {
+    const response = await api.post(`/admin/policies/customers/${customerId}/assign`, {
+      policyId
+    });
+    return response.data;
+  } catch (error) {
+    // Extract error message from API response
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to assign policy';
+    throw new Error(errorMessage);
+  }
 };
 
 // Customer endpoints
